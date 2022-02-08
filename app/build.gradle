@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+}
+
+android {
+    compileSdk 31
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    defaultConfig {
+        applicationId "io.github.airdaydreamers.housediurnalcycle.watchface"
+        minSdk 30
+        targetSdk 31
+        versionCode 1
+        versionName "1.0"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+
+//    implementation 'com.google.android.gms:play-services-wearable:17.1.0'
+//    implementation 'com.google.android.gms:play-services-base:17.6.0'
+//    implementation 'androidx.palette:palette-ktx:1.0.0'
+//    compileOnly 'com.google.android.wearable:wearable:2.8.1'
+
+    implementation "androidx.core:core-ktx:1.7.0"
+
+    // Kotlin components
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0"
+
+    implementation "androidx.activity:activity-ktx:1.4.0"
+
+    // Lifecycle components
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.4.0"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.4.0"
+
+    // Material components
+    implementation "com.google.android.material:material:1.4.0"
+
+    // Wear libraries
+    implementation "androidx.wear:wear:1.2.0"
+
+    // Watch face specific libraries
+    implementation "androidx.wear.watchface:watchface-complications-data:1.0.0"
+    implementation "androidx.wear.watchface:watchface-complications-data-source:1.0.0"
+
+    implementation "androidx.wear.watchface:watchface:1.0.0"
+    implementation "androidx.wear.watchface:watchface-client:1.0.0"
+    implementation "androidx.wear.watchface:watchface-complications-rendering:1.0.0"
+    implementation "androidx.wear.watchface:watchface-data:1.0.0"
+    implementation "androidx.wear.watchface:watchface-editor:1.0.0"
+    implementation "androidx.wear.watchface:watchface-style:1.0.0"
+}

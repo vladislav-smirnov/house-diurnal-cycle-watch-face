@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">House diurnal cycle Watch Face</string>
+    <string name="watch_face_name">House diurnal cycle</string>
+    <string name="title_activity_watch_face_config">title_activity_watch_face_config</string>
+</resources>
