@@ -206,9 +206,9 @@ class DiurnalCanvasRenderer(
         virtualTimes: SunTimes
     ): DailyStatus {
         return when {
-            isEventTime(sunrise, currentTime, virtualTimes) -> DailyStatus.SUNRISE
+            isEventTime(sunrise, currentTime, virtualTimes.rise) -> DailyStatus.SUNRISE
             isDay(sunrise, sunset, currentTime, computedTimes) -> DailyStatus.DAY
-            isEventTime(sunset, currentTime, virtualTimes) -> DailyStatus.SUNSET
+            isEventTime(sunset, currentTime, virtualTimes.set) -> DailyStatus.SUNSET
             else -> DailyStatus.NIGHT
         }
     }
@@ -230,9 +230,9 @@ class DiurnalCanvasRenderer(
     private fun isEventTime(
         eventTime: ZonedDateTime?,
         currentTime: ZonedDateTime,
-        virtualTimes: SunTimes
+        virtualTime: ZonedDateTime?
     ): Boolean {
-        return isSunriseOrSunset(currentTime, eventTime = eventTime ?: virtualTimes.set)
+        return isSunriseOrSunset(currentTime, eventTime = eventTime ?: virtualTime)
     }
 
     private fun isSunriseOrSunset(currentTime: ZonedDateTime, eventTime: ZonedDateTime?): Boolean {
