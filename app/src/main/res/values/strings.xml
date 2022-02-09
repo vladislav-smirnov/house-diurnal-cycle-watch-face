@@ -2,4 +2,13 @@
     <string name="app_name">House diurnal cycle Watch Face</string>
     <string name="watch_face_name">House diurnal cycle</string>
     <string name="title_activity_watch_face_config">title_activity_watch_face_config</string>
+
+    <string name="colors_style_setting">Colors</string>
+    <string name="colors_style_setting_description">Choose watch face colors</string>
+
+    <string name="watchface_debug_setting">Debug</string>
+    <string name="watchface_debug_setting_description">Debug options</string>
+
+    <string name="watchface_clock_type_setting">Clock type</string>
+    <string name="watchface_clock_type_setting_description">Hand visual look</string>
 </resources>

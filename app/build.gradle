@@ -35,6 +35,10 @@ dependencies {
 //    implementation 'androidx.palette:palette-ktx:1.0.0'
 //    compileOnly 'com.google.android.wearable:wearable:2.8.1'
 
+    //Animation components
+    implementation "com.airbnb.android:lottie:4.2.2"
+    implementation "org.shredzone.commons:commons-suncalc:3.5"
+
     implementation "androidx.core:core-ktx:1.7.0"
 
     // Kotlin components
