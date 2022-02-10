@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Rect
 import android.location.Location
@@ -17,6 +18,7 @@ import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.style.CurrentUserStyleRepository
+import androidx.wear.widget.CurvedTextView
 import com.airbnb.lottie.LottieAnimationView
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyStatus
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyTime
@@ -27,6 +29,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.shredzone.commons.suncalc.SunTimes
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 
 
 class DiurnalCanvasRenderer(
@@ -49,10 +53,11 @@ class DiurnalCanvasRenderer(
 
     private lateinit var rootView: View
     private lateinit var houseView: LottieAnimationView
+    private lateinit var clockView: CurvedTextView
 
     private var listOfTimes: Array<DailyTime> = arrayOf(DailyTime(), DailyTime())
-
-    private var countDown: Float = 0f
+    private var currentDailyStatus: DailyStatus = DailyStatus.DAY
+    private var currentProgress = 0.0f  //0f to 1f
 
     private val currentScope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -109,6 +114,7 @@ class DiurnalCanvasRenderer(
         rootView.layout(0, 0, rootView.measuredWidth, rootView.measuredHeight)
 
         houseView = rootView.findViewById(R.id.animation_view)
+        clockView = rootView.findViewById(R.id.digital_clock_view)
     }
 
     override fun onDestroy() {
@@ -119,20 +125,26 @@ class DiurnalCanvasRenderer(
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
         Log.v(TAG, "$zonedDateTime")
 
-        val status = computeDailyStatus(zonedDateTime)
+        //testTime = testTime.plusSeconds(20)
 
+        val status = computeDailyStatus(zonedDateTime)
         Log.d(TAG, "status: $status")
 
-        //region test lottie will be changed
         rootView.draw(canvas)
+        animate(status, zonedDateTime)
 
-        if (countDown >= 0.2466f) {
-            countDown = 0f
-        }
+        //TODO: make awesome digital clock
+        clockView.text = "${zonedDateTime.hour}:${zonedDateTime.minute}"
 
-        countDown += 0.001f
-        houseView.progress = countDown
-        Log.d(TAG, "countDown = $countDown")
+        //region test lottie will be changed
+//        if (countDown >= 0.5056f) {
+//            countDown = 0.2466f
+//        }
+
+        //countDown += 0.001f
+
+        //houseView.progress = countDown
+        //Log.d(TAG, "countDown = $countDown")
         //canvas.drawColor(Color)
         //endregion
     }
@@ -151,6 +163,78 @@ class DiurnalCanvasRenderer(
     }
 
     //region logic TODO: decide to make in separate file
+    private fun animate(
+        dailyStatus: DailyStatus,
+        currentTime: ZonedDateTime
+    ) {
+        when (dailyStatus) {
+            DailyStatus.SUNRISE -> {
+                if (currentDailyStatus != dailyStatus) {
+                    currentDailyStatus = dailyStatus
+                    currentProgress = 0.7400f //max 1
+                }
+
+                var sunrise: ZonedDateTime?
+                currentTime.dayOfYear.rem(2).also {
+                    sunrise = listOfTimes[it].sunrise
+                }
+
+                //0.0037 per minute
+                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, sunrise))
+                houseView.progress = 0.0037f * progressOfEvent + 0.7400f
+            }
+            DailyStatus.DAY -> {
+                clockView.textColor = Color.BLACK
+                clockView.invalidate()
+
+                if (currentDailyStatus != dailyStatus) {
+                    currentDailyStatus = dailyStatus
+                    currentProgress = 0.0f  //max 0.2466f
+                }
+
+                if (currentProgress >= 0.2466f) {
+                    currentProgress = 0.0f
+                }
+
+                currentProgress += 0.001f
+                houseView.progress = currentProgress
+            }
+            DailyStatus.SUNSET -> {
+                if (currentDailyStatus != dailyStatus) {
+                    currentDailyStatus = dailyStatus
+                    currentProgress = 0.2466f // max 0.5056f
+                }
+
+                //0.0037 per minute
+                val sunset: ZonedDateTime?
+                currentTime.dayOfYear.rem(2).also {
+                    sunset = listOfTimes[it].sunset
+                }
+
+                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, sunset))
+
+                val estimatedProgress = 0.0037f * progressOfEvent + 0.2466f
+                houseView.progress = estimatedProgress
+            }
+            DailyStatus.NIGHT -> {
+                clockView.textColor = Color.WHITE
+                clockView.invalidate()
+
+                if (currentDailyStatus != dailyStatus) {
+                    currentDailyStatus = dailyStatus
+                    currentProgress = 0.5056f  // max =0.7400f
+                }
+
+                if (currentProgress >= 0.7400f) {
+                    currentProgress = 0.5056f
+                }
+
+                currentProgress += 0.001f
+                houseView.progress = currentProgress
+            }
+        }
+    }
+
     private fun computeDailyStatus(zonedDateTime: ZonedDateTime): DailyStatus {
         //Get current location //TODO: need to request permissions
         val location = getLocation()
@@ -180,6 +264,8 @@ class DiurnalCanvasRenderer(
             sunrise = listOfTimes[it].sunrise
             sunset = listOfTimes[it].sunset
         }
+
+        Log.v(TAG, "sunrise: $sunrise sunset: $sunset")
 
         val virtualTimes = if (sunrise == null || sunset == null) {
             //if all values for current day is null
@@ -219,9 +305,15 @@ class DiurnalCanvasRenderer(
         virtualTimes: SunTimes
     ): DailyStatus {
         return when {
-            isSunriseOrSunset(currentTime, eventTime = sunrise ?: virtualTimes.rise)-> DailyStatus.SUNRISE
+            isSunriseOrSunset(
+                currentTime,
+                eventTime = sunrise ?: virtualTimes.rise
+            ) -> DailyStatus.SUNRISE
             isDay(sunrise, sunset, currentTime, computedTimes) -> DailyStatus.DAY
-            isSunriseOrSunset(currentTime, eventTime = sunset ?: virtualTimes.set) -> DailyStatus.SUNSET
+            isSunriseOrSunset(
+                currentTime,
+                eventTime = sunset ?: virtualTimes.set
+            ) -> DailyStatus.SUNSET
             else -> DailyStatus.NIGHT
         }
     }
