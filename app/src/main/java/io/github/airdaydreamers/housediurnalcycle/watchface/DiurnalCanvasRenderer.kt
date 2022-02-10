@@ -50,7 +50,7 @@ class DiurnalCanvasRenderer(
     private lateinit var rootView: View
     private lateinit var houseView: LottieAnimationView
 
-    private var listOfTimes: Array<DailyTime?> = arrayOfNulls(2)
+    private var listOfTimes: Array<DailyTime> = arrayOf(DailyTime(), DailyTime())
 
     private var countDown: Float = 0f
 
@@ -119,11 +119,10 @@ class DiurnalCanvasRenderer(
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
         Log.v(TAG, "$zonedDateTime")
 
-        //val test = zonedDateTime.plusMinutes(61)
-
         val status = computeDailyStatus(zonedDateTime)
 
         Log.d(TAG, "status: $status")
+
         //region test lottie will be changed
         rootView.draw(canvas)
 
@@ -138,6 +137,20 @@ class DiurnalCanvasRenderer(
         //endregion
     }
 
+    //TODO: need to complete
+    override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
+        Log.d(TAG, "renderHighlightLayer")
+
+        canvas.drawColor(renderParameters.highlightLayer!!.backgroundTint)
+
+        for ((_, complication) in complicationSlotsManager.complicationSlots) {
+            if (complication.enabled) {
+                complication.renderHighlightLayer(canvas, zonedDateTime, renderParameters)
+            }
+        }
+    }
+
+    //region logic TODO: decide to make in separate file
     private fun computeDailyStatus(zonedDateTime: ZonedDateTime): DailyStatus {
         //Get current location //TODO: need to request permissions
         val location = getLocation()
@@ -153,19 +166,19 @@ class DiurnalCanvasRenderer(
         }
 
         times.rise?.dayOfYear?.rem(2)?.also {
-            listOfTimes[it]?.sunrise = times.rise
+            listOfTimes[it].sunrise = times.rise
         }
 
         times.set?.dayOfYear?.rem(2)?.also {
-            listOfTimes[it]?.sunset = times.set
+            listOfTimes[it].sunset = times.set
         }
 
         var sunrise: ZonedDateTime?
         var sunset: ZonedDateTime?
 
         zonedDateTime.dayOfYear.rem(2).also {
-            sunrise = listOfTimes[it]?.sunrise
-            sunset = listOfTimes[it]?.sunset
+            sunrise = listOfTimes[it].sunrise
+            sunset = listOfTimes[it].sunset
         }
 
         val virtualTimes = if (sunrise == null || sunset == null) {
@@ -206,9 +219,9 @@ class DiurnalCanvasRenderer(
         virtualTimes: SunTimes
     ): DailyStatus {
         return when {
-            isEventTime(sunrise, currentTime, virtualTimes.rise) -> DailyStatus.SUNRISE
+            isSunriseOrSunset(currentTime, eventTime = sunrise ?: virtualTimes.rise)-> DailyStatus.SUNRISE
             isDay(sunrise, sunset, currentTime, computedTimes) -> DailyStatus.DAY
-            isEventTime(sunset, currentTime, virtualTimes.set) -> DailyStatus.SUNSET
+            isSunriseOrSunset(currentTime, eventTime = sunset ?: virtualTimes.set) -> DailyStatus.SUNSET
             else -> DailyStatus.NIGHT
         }
     }
@@ -225,14 +238,6 @@ class DiurnalCanvasRenderer(
                 || ((sunrise == null && sunset != null)
                 && currentTime.isBefore(sunset)
                 && (computedTimes.rise?.isAfter(computedTimes.set) == true))
-    }
-
-    private fun isEventTime(
-        eventTime: ZonedDateTime?,
-        currentTime: ZonedDateTime,
-        virtualTime: ZonedDateTime?
-    ): Boolean {
-        return isSunriseOrSunset(currentTime, eventTime = eventTime ?: virtualTime)
     }
 
     private fun isSunriseOrSunset(currentTime: ZonedDateTime, eventTime: ZonedDateTime?): Boolean {
@@ -286,17 +291,5 @@ class DiurnalCanvasRenderer(
 
         return location
     }
-
-    //TODO: need to complete
-    override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
-        Log.d(TAG, "renderHighlightLayer")
-
-        canvas.drawColor(renderParameters.highlightLayer!!.backgroundTint)
-
-        for ((_, complication) in complicationSlotsManager.complicationSlots) {
-            if (complication.enabled) {
-                complication.renderHighlightLayer(canvas, zonedDateTime, renderParameters)
-            }
-        }
-    }
+    //endregion
 }
