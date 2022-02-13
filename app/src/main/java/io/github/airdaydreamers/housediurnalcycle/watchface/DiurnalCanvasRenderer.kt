@@ -14,9 +14,7 @@ import android.location.LocationManager
 import android.util.Log
 import android.view.*
 import androidx.core.app.ActivityCompat
-import androidx.wear.watchface.ComplicationSlotsManager
-import androidx.wear.watchface.Renderer
-import androidx.wear.watchface.WatchState
+import androidx.wear.watchface.*
 import androidx.wear.watchface.style.CurrentUserStyleRepository
 import androidx.wear.widget.CurvedTextView
 import com.airbnb.lottie.LottieAnimationView
@@ -122,8 +120,22 @@ class DiurnalCanvasRenderer(
         Log.d(TAG, "onDestroy")
     }
 
+    override fun onRenderParametersChanged(renderParameters: RenderParameters) {
+        super.onRenderParametersChanged(renderParameters)
+
+        Log.v(TAG, "drawMode: ${renderParameters.drawMode}")
+    }
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
         Log.v(TAG, "$zonedDateTime")
+
+        Log.v(TAG, "render => drawMode: ${renderParameters.drawMode}")
+        //Will use
+        when (renderParameters.drawMode) {
+            DrawMode.AMBIENT -> {}
+            DrawMode.INTERACTIVE -> {}
+            DrawMode.LOW_BATTERY_INTERACTIVE -> {}
+            DrawMode.MUTE -> {}
+        }
 
         //testTime = testTime.plusSeconds(20)
 
@@ -135,6 +147,10 @@ class DiurnalCanvasRenderer(
 
         //TODO: make awesome digital clock
         clockView.text = "${zonedDateTime.hour}:${zonedDateTime.minute}"
+
+        //TODO: draw on edge. at this moment we can see circle
+        //drawComplications(canvas, zonedDateTime)
+
 
         //region test lottie will be changed
 //        if (countDown >= 0.5056f) {
@@ -158,6 +174,14 @@ class DiurnalCanvasRenderer(
         for ((_, complication) in complicationSlotsManager.complicationSlots) {
             if (complication.enabled) {
                 complication.renderHighlightLayer(canvas, zonedDateTime, renderParameters)
+            }
+        }
+    }
+
+    private fun drawComplications(canvas: Canvas, zonedDateTime: ZonedDateTime) {
+        for ((_, complication) in complicationSlotsManager.complicationSlots) {
+            if (complication.enabled) {
+                complication.render(canvas, zonedDateTime, renderParameters)
             }
         }
     }
