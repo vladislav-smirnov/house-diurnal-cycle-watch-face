@@ -14,22 +14,12 @@
         app:lottie_fileName="lottie_watch_face_main.json"
         app:lottie_loop="true" />
 
-    <androidx.wear.widget.CurvedTextView
-        android:id="@+id/digital_clock_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="9dp"
-        android:clickable="false"
-        android:fadingEdge="horizontal"
-        android:focusable="false"
-        android:text="9:24"
-        android:textColor="@android:color/black"
-        android:textSize="23sp"
-        android:typeface="serif"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+    <io.github.airdaydreamers.timetext.TimeText
+        android:id="@+id/timeText"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:titleTextColor="#82b1ff">
 
-    </androidx.wear.widget.CurvedTextView>
+    </io.github.airdaydreamers.timetext.TimeText>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

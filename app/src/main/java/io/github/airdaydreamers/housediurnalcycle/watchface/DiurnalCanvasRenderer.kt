@@ -21,6 +21,7 @@ import com.airbnb.lottie.LottieAnimationView
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyStatus
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyTime
 import io.github.airdaydreamers.housediurnalcycle.watchface.utils.Constants
+import io.github.airdaydreamers.timetext.TimeText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,7 +52,7 @@ class DiurnalCanvasRenderer(
 
     private lateinit var rootView: View
     private lateinit var houseView: LottieAnimationView
-    private lateinit var clockView: CurvedTextView
+    //private lateinit var clockView: CurvedTextView
 
     private var listOfTimes: Array<DailyTime> = arrayOf(DailyTime(), DailyTime())
     private var currentDailyStatus: DailyStatus = DailyStatus.DAY
@@ -112,11 +113,13 @@ class DiurnalCanvasRenderer(
         rootView.layout(0, 0, rootView.measuredWidth, rootView.measuredHeight)
 
         houseView = rootView.findViewById(R.id.animation_view)
-        clockView = rootView.findViewById(R.id.digital_clock_view)
+        (rootView.findViewById(R.id.timeText) as TimeText).onAttachedToWindow()
+        //clockView = rootView.findViewById(R.id.digital_clock_view)
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        (rootView.findViewById(R.id.timeText) as TimeText).onDetachedFromWindow()
         Log.d(TAG, "onDestroy")
     }
 
@@ -142,14 +145,14 @@ class DiurnalCanvasRenderer(
         val status = computeDailyStatus(zonedDateTime)
         Log.d(TAG, "status: $status")
 
-        rootView.draw(canvas)
+        //rootView.draw(canvas)
         animate(status, zonedDateTime)
 
         //TODO: make awesome digital clock
-        clockView.text = "${zonedDateTime.hour}:${zonedDateTime.minute}"
+        //clockView.text = "${zonedDateTime.hour}:${zonedDateTime.minute}"
 
         //TODO: draw on edge. at this moment we can see circle
-        //drawComplications(canvas, zonedDateTime)
+        drawComplications(canvas, zonedDateTime)
 
 
         //region test lottie will be changed
@@ -208,8 +211,8 @@ class DiurnalCanvasRenderer(
                 houseView.progress = 0.0037f * progressOfEvent + 0.7400f
             }
             DailyStatus.DAY -> {
-                clockView.textColor = Color.BLACK
-                clockView.invalidate()
+                //clockView.textColor = Color.BLACK
+                //clockView.invalidate()
 
                 if (currentDailyStatus != dailyStatus) {
                     currentDailyStatus = dailyStatus
@@ -241,8 +244,8 @@ class DiurnalCanvasRenderer(
                 houseView.progress = estimatedProgress
             }
             DailyStatus.NIGHT -> {
-                clockView.textColor = Color.WHITE
-                clockView.invalidate()
+                //clockView.textColor = Color.WHITE
+                //clockView.invalidate()
 
                 if (currentDailyStatus != dailyStatus) {
                     currentDailyStatus = dailyStatus

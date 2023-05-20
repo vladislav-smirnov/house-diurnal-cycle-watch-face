@@ -31,7 +31,7 @@ class WatchFaceUtils {
             val defaultCanvasComplicationFactory =
                 CanvasComplicationFactory { watchState, invalidateCallback ->
 
-                    CanvasComplicationDrawable(
+                    TestDrawable(
                         ComplicationDrawable.getDrawable(
                             context, R.drawable.default_drawable_complication
                         )!!,
@@ -91,7 +91,7 @@ class WatchFaceUtils {
                 .build()
 
             return ComplicationSlotsManager(
-                listOf(leftComplicationSlot, rightComplicationSlot),
+                listOf(leftComplicationSlot),
                 currentUserStyleRepository
             )
         }

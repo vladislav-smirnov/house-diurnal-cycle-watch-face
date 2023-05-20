@@ -29,6 +29,7 @@ android {
 }
 
 dependencies {
+    implementation project(path: ':timetext')
 
 //    implementation 'com.google.android.gms:play-services-wearable:17.1.0'
 //    implementation 'com.google.android.gms:play-services-base:17.6.0'
@@ -61,7 +62,7 @@ dependencies {
     implementation "androidx.wear.watchface:watchface-complications-data:1.0.0"
     implementation "androidx.wear.watchface:watchface-complications-data-source:1.0.0"
 
-    implementation "androidx.wear.watchface:watchface:1.0.0"
+    implementation "androidx.wear.watchface:watchface:1.1.0-alpha03"
     implementation "androidx.wear.watchface:watchface-client:1.0.0"
     implementation "androidx.wear.watchface:watchface-complications-rendering:1.0.0"
     implementation "androidx.wear.watchface:watchface-data:1.0.0"
