@@ -5,7 +5,9 @@ plugins {
 }
 
 android {
-    compileSdk 31
+    //namespace 'com.example.namespace'
+
+    compileSdk 33
 
     buildFeatures {
         viewBinding true
@@ -14,7 +16,7 @@ android {
     defaultConfig {
         applicationId "io.github.airdaydreamers.housediurnalcycle.watchface"
         minSdk 30
-        targetSdk 31
+        targetSdk 33
         versionCode 1
         versionName "1.0"
 
@@ -25,6 +27,21 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    namespace 'io.github.airdaydreamers.housediurnalcycle.watchface'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
     }
 }
 
@@ -37,35 +54,35 @@ dependencies {
 //    compileOnly 'com.google.android.wearable:wearable:2.8.1'
 
     //Animation components
-    implementation "com.airbnb.android:lottie:4.2.2"
-    implementation "org.shredzone.commons:commons-suncalc:3.5"
+    implementation 'com.airbnb.android:lottie:6.0.1'
+    implementation 'org.shredzone.commons:commons-suncalc:3.7'
 
-    implementation "androidx.core:core-ktx:1.7.0"
+    implementation "androidx.core:core-ktx:1.10.1"
 
     // Kotlin components
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
 
-    implementation "androidx.activity:activity-ktx:1.4.0"
+    implementation "androidx.activity:activity-ktx:1.7.2"
 
     // Lifecycle components
-    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.4.0"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.4.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1"
 
     // Material components
-    implementation "com.google.android.material:material:1.4.0"
+    implementation "com.google.android.material:material:1.9.0"
 
     // Wear libraries
     implementation "androidx.wear:wear:1.2.0"
 
     // Watch face specific libraries
-    implementation "androidx.wear.watchface:watchface-complications-data:1.0.0"
-    implementation "androidx.wear.watchface:watchface-complications-data-source:1.0.0"
+    implementation "androidx.wear.watchface:watchface-complications-data:1.1.1"
+    implementation "androidx.wear.watchface:watchface-complications-data-source:1.1.1"
 
-    implementation "androidx.wear.watchface:watchface:1.1.0-alpha03"
-    implementation "androidx.wear.watchface:watchface-client:1.0.0"
-    implementation "androidx.wear.watchface:watchface-complications-rendering:1.0.0"
-    implementation "androidx.wear.watchface:watchface-data:1.0.0"
-    implementation "androidx.wear.watchface:watchface-editor:1.0.0"
-    implementation "androidx.wear.watchface:watchface-style:1.0.0"
+    implementation "androidx.wear.watchface:watchface:1.1.1"
+    implementation "androidx.wear.watchface:watchface-client:1.1.1"
+    implementation "androidx.wear.watchface:watchface-complications-rendering:1.1.1"
+    implementation "androidx.wear.watchface:watchface-data:1.1.1"
+    implementation "androidx.wear.watchface:watchface-editor:1.1.1"
+    implementation "androidx.wear.watchface:watchface-style:1.1.1"
 }
