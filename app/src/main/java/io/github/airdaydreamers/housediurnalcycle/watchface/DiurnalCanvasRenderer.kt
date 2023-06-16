@@ -48,6 +48,9 @@ class DiurnalCanvasRenderer(
 ) {
     companion object {
         const val TAG = "DiurnalCanvasRenderer"
+        //Default location is BERLIN
+        private const val DEFAULT_LATITUDE = 52.520008
+        private const val DEFAULT_LONGITUDE = 13.404954
     }
 
     private lateinit var rootView: View
@@ -60,6 +63,10 @@ class DiurnalCanvasRenderer(
 
     private val currentScope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+
+    private val hasGps: Boolean by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS) }
+    private val hasNetworkLocation: Boolean by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_NETWORK) }
 
     //region timecodes
     /*
@@ -113,7 +120,10 @@ class DiurnalCanvasRenderer(
         rootView.layout(0, 0, rootView.measuredWidth, rootView.measuredHeight)
 
         houseView = rootView.findViewById(R.id.animation_view)
-        (rootView.findViewById(R.id.timeText) as TimeText).onAttachedToWindow()
+        (rootView.findViewById(R.id.timeText) as TimeText).also {
+            it.onAttachedToWindow()
+            it.measure(specW, specH)
+        }
         //clockView = rootView.findViewById(R.id.digital_clock_view)
     }
 
@@ -145,7 +155,7 @@ class DiurnalCanvasRenderer(
         val status = computeDailyStatus(zonedDateTime)
         Log.d(TAG, "status: $status")
 
-        //rootView.draw(canvas)
+        rootView.draw(canvas)
         animate(status, zonedDateTime)
 
         //TODO: make awesome digital clock
@@ -267,14 +277,14 @@ class DiurnalCanvasRenderer(
         val location = getLocation()
 
         val times = if (location != null) {
-            val times = SunTimes.compute()
+            SunTimes.compute()
                 .on(zonedDateTime)
                 .at(location.latitude, location.longitude)
                 .execute()
-            times
         } else {
             SunTimes.compute().execute()
         }
+        Log.v(TAG, "SunTimes: $times")
 
         times.rise?.dayOfYear?.rem(2)?.also {
             listOfTimes[it].sunrise = times.rise
@@ -367,6 +377,7 @@ class DiurnalCanvasRenderer(
     }
 
     private fun getLocation(): Location? {
+        Log.i(TAG, "hasGPS: $hasGps and hasNetworkLocation: $hasNetworkLocation")
         val locationManager = context
             .getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -391,20 +402,21 @@ class DiurnalCanvasRenderer(
             Log.i(TAG, "Need to request permissions")
             return null
         }
-        locationManager.requestLocationUpdates(
-            LocationManager.NETWORK_PROVIDER,
-            1,
-            1f,
-            listener
-        )
+
+//        locationManager.requestLocationUpdates(
+//            LocationManager.NETWORK_PROVIDER,
+//            0,
+//            1f,
+//            listener
+//        )
 
 
         //TODO: add support GPS location data
         val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
         locationManager.removeUpdates(listener)
 
-        val latitude = location?.latitude
-        val longitude = location?.longitude
+        val latitude = location?.latitude ?: DEFAULT_LATITUDE //TODO: will be removed -> will use for development
+        val longitude = location?.longitude ?: DEFAULT_LONGITUDE //TODO: will be removed -> will use for development
 
         Log.d(TAG, "latitude: $latitude longitude: $longitude")
 
