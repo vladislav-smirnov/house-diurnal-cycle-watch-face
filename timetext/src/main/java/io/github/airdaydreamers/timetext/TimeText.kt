@@ -34,11 +34,13 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.res.use
 import androidx.core.os.ConfigurationCompat
 import androidx.core.view.isGone
+import io.github.airdaydreamers.timetext.TimeText.Clock
 import io.github.airdaydreamers.timetext.TimeTextViewBinding.TimeTextCurvedViewBinding
 import io.github.airdaydreamers.timetext.TimeTextViewBinding.TimeTextStraightViewBinding
 import io.github.airdaydreamers.timetext.databinding.CurvedTimeTextBinding
 import io.github.airdaydreamers.timetext.databinding.StraightTimeTextBinding
 import java.util.Calendar
+
 
 /**
  * The max sweep angle for the [TimeText] to occupy.
@@ -51,6 +53,9 @@ class TimeText @JvmOverloads constructor(
     @AttrRes defStyleAttr: Int = 0,
     @StyleRes defStyleRes: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr, defStyleRes) {
+    companion object {
+        private val TAG = TimeText::class.java.simpleName
+    }
 
     /**
      * The underlying [Calendar] instance for producing the time.
@@ -77,7 +82,6 @@ class TimeText @JvmOverloads constructor(
 
     private val timeBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            Log.e("myLog", "onReceive")
             when (intent.action) {
                 Intent.ACTION_TIMEZONE_CHANGED -> onTimeZoneChange()
                 Intent.ACTION_TIME_TICK, Intent.ACTION_TIME_CHANGED -> onTimeChange()
@@ -157,11 +161,12 @@ class TimeText @JvmOverloads constructor(
 
         // Update based on the styled attributes.
         // Note that this runs the side-effects of setting those attributes.
-        context.obtainStyledAttributes(attrs,
-            R.styleable.TimeText, defStyleAttr, defStyleRes).use { typedArray ->
-            titleTextColor = typedArray.getColor(R.styleable.TimeText_android_titleTextColor, titleTextColor)
-            title = typedArray.getString(R.styleable.TimeText_titleText)
-        }
+        context.obtainStyledAttributes(attrs, R.styleable.TimeText, defStyleAttr, defStyleRes)
+            .use { typedArray ->
+                titleTextColor =
+                    typedArray.getColor(R.styleable.TimeText_android_titleTextColor, titleTextColor)
+                title = typedArray.getString(R.styleable.TimeText_titleText)
+            }
     }
 
     /**
@@ -206,10 +211,11 @@ class TimeText @JvmOverloads constructor(
         }
     }
 
+    //TODO: do we really need it? maybe LifecycleObserver?
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
 
-        if(visibility == View.VISIBLE) {
+        if (visibility == View.VISIBLE) {
             onAttachedToWindow()
         } else {
             onDetachedFromWindow()
@@ -218,8 +224,6 @@ class TimeText @JvmOverloads constructor(
 
     public override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-
-        Log.e("myLog", "onAttachedToWindow")
 
         onTimeZoneChange()
         onTimeFormatChange()
@@ -291,9 +295,12 @@ private sealed class TimeTextViewBinding {
     class TimeTextCurvedViewBinding(
         timeTextBinding: CurvedTimeTextBinding
     ) : TimeTextViewBinding() {
-        override val timeTextTitle: CurvedTextViewWrapper = CurvedTextViewWrapper(timeTextBinding.timeTextTitle)
-        override val timeTextDivider: CurvedTextViewWrapper = CurvedTextViewWrapper(timeTextBinding.timeTextDivider)
-        override val timeTextClock: CurvedTextViewWrapper = CurvedTextViewWrapper(timeTextBinding.timeTextClock)
+        override val timeTextTitle: CurvedTextViewWrapper =
+            CurvedTextViewWrapper(timeTextBinding.timeTextTitle)
+        override val timeTextDivider: CurvedTextViewWrapper =
+            CurvedTextViewWrapper(timeTextBinding.timeTextDivider)
+        override val timeTextClock: CurvedTextViewWrapper =
+            CurvedTextViewWrapper(timeTextBinding.timeTextClock)
     }
 
     /**
@@ -302,8 +309,11 @@ private sealed class TimeTextViewBinding {
     class TimeTextStraightViewBinding(
         timeTextBinding: StraightTimeTextBinding
     ) : TimeTextViewBinding() {
-        override val timeTextTitle: NormalTextViewWrapper = NormalTextViewWrapper(timeTextBinding.timeTextTitle)
-        override val timeTextDivider: NormalTextViewWrapper = NormalTextViewWrapper(timeTextBinding.timeTextDivider)
-        override val timeTextClock: NormalTextViewWrapper = NormalTextViewWrapper(timeTextBinding.timeTextClock)
+        override val timeTextTitle: NormalTextViewWrapper =
+            NormalTextViewWrapper(timeTextBinding.timeTextTitle)
+        override val timeTextDivider: NormalTextViewWrapper =
+            NormalTextViewWrapper(timeTextBinding.timeTextDivider)
+        override val timeTextClock: NormalTextViewWrapper =
+            NormalTextViewWrapper(timeTextBinding.timeTextClock)
     }
 }

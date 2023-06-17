@@ -18,8 +18,5 @@
         android:id="@+id/timeText"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:titleTextColor="#82b1ff">
-
-    </io.github.airdaydreamers.timetext.TimeText>
-
+        app:titleTextColor="#82b1ff" />
 </androidx.constraintlayout.widget.ConstraintLayout>
