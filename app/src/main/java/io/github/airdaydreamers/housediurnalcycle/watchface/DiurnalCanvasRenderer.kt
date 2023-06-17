@@ -3,24 +3,26 @@ package io.github.airdaydreamers.housediurnalcycle.watchface
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Rect
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.BatteryManager
 import android.util.Log
 import android.view.*
 import androidx.core.app.ActivityCompat
 import androidx.wear.watchface.*
 import androidx.wear.watchface.style.CurrentUserStyleRepository
-import androidx.wear.widget.CurvedTextView
 import com.airbnb.lottie.LottieAnimationView
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyStatus
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyTime
 import io.github.airdaydreamers.housediurnalcycle.watchface.utils.Constants
+import io.github.airdaydreamers.housediurnalcycle.watchface.utils.changeLayersColor
 import io.github.airdaydreamers.timetext.TimeText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,9 +50,17 @@ class DiurnalCanvasRenderer(
 ) {
     companion object {
         const val TAG = "DiurnalCanvasRenderer"
+
         //Default location is BERLIN
         private const val DEFAULT_LATITUDE = 52.520008
         private const val DEFAULT_LONGITUDE = 13.404954
+
+        private const val LOTTIE_NAME_PATH_CONTENT = "content"
+        private const val LOTTIE_NAME_PATH_BATTERY_GROUP = "battery_changes"
+        private const val LOTTIE_NAME_PATH_BATTERY_CELL_4 = "battery_item_0_4"
+        private const val LOTTIE_NAME_PATH_BATTERY_CELL_3 = "battery_item_0_3"
+        private const val LOTTIE_NAME_PATH_BATTERY_CELL_2 = "battery_item_0_2"
+        private const val LOTTIE_NAME_PATH_BATTERY_CELL_1 = "battery_item_0_1"
     }
 
     private lateinit var rootView: View
@@ -66,7 +76,32 @@ class DiurnalCanvasRenderer(
 
 
     private val hasGps: Boolean by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS) }
-    private val hasNetworkLocation: Boolean by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_NETWORK) }
+    private val hasNetworkLocation: Boolean by lazy {
+        context.packageManager.hasSystemFeature(
+            PackageManager.FEATURE_LOCATION_NETWORK
+        )
+    }
+
+    private val lottiePathBattery4 = arrayListOf(
+        LOTTIE_NAME_PATH_CONTENT,
+        LOTTIE_NAME_PATH_BATTERY_GROUP,
+        LOTTIE_NAME_PATH_BATTERY_CELL_4
+    )
+    private val lottiePathBattery3 = arrayListOf(
+        LOTTIE_NAME_PATH_CONTENT,
+        LOTTIE_NAME_PATH_BATTERY_GROUP,
+        LOTTIE_NAME_PATH_BATTERY_CELL_3
+    )
+    private val lottiePathBattery2 = arrayListOf(
+        LOTTIE_NAME_PATH_CONTENT,
+        LOTTIE_NAME_PATH_BATTERY_GROUP,
+        LOTTIE_NAME_PATH_BATTERY_CELL_2
+    )
+    private val lottiePathBattery1 = arrayListOf(
+        LOTTIE_NAME_PATH_CONTENT,
+        LOTTIE_NAME_PATH_BATTERY_GROUP,
+        LOTTIE_NAME_PATH_BATTERY_CELL_1
+    )
 
     //region timecodes
     /*
@@ -138,6 +173,7 @@ class DiurnalCanvasRenderer(
 
         Log.v(TAG, "drawMode: ${renderParameters.drawMode}")
     }
+
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
         Log.v(TAG, "$zonedDateTime")
 
@@ -176,6 +212,8 @@ class DiurnalCanvasRenderer(
         //Log.d(TAG, "countDown = $countDown")
         //canvas.drawColor(Color)
         //endregion
+
+        drawBatteryLevel()
     }
 
     //TODO: need to complete
@@ -220,6 +258,7 @@ class DiurnalCanvasRenderer(
                 val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, sunrise))
                 houseView.progress = 0.0037f * progressOfEvent + 0.7400f
             }
+
             DailyStatus.DAY -> {
                 //clockView.textColor = Color.BLACK
                 //clockView.invalidate()
@@ -236,6 +275,7 @@ class DiurnalCanvasRenderer(
                 currentProgress += 0.001f
                 houseView.progress = currentProgress
             }
+
             DailyStatus.SUNSET -> {
                 if (currentDailyStatus != dailyStatus) {
                     currentDailyStatus = dailyStatus
@@ -253,6 +293,7 @@ class DiurnalCanvasRenderer(
                 val estimatedProgress = 0.0037f * progressOfEvent + 0.2466f
                 houseView.progress = estimatedProgress
             }
+
             DailyStatus.NIGHT -> {
                 //clockView.textColor = Color.WHITE
                 //clockView.invalidate()
@@ -346,11 +387,13 @@ class DiurnalCanvasRenderer(
                 currentTime,
                 eventTime = sunrise ?: virtualTimes.rise
             ) -> DailyStatus.SUNRISE
+
             isDay(sunrise, sunset, currentTime, computedTimes) -> DailyStatus.DAY
             isSunriseOrSunset(
                 currentTime,
                 eventTime = sunset ?: virtualTimes.set
             ) -> DailyStatus.SUNSET
+
             else -> DailyStatus.NIGHT
         }
     }
@@ -415,12 +458,109 @@ class DiurnalCanvasRenderer(
         val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
         locationManager.removeUpdates(listener)
 
-        val latitude = location?.latitude ?: DEFAULT_LATITUDE //TODO: will be removed -> will use for development
-        val longitude = location?.longitude ?: DEFAULT_LONGITUDE //TODO: will be removed -> will use for development
+        val latitude = location?.latitude
+            ?: DEFAULT_LATITUDE //TODO: will be removed -> will use for development
+        val longitude = location?.longitude
+            ?: DEFAULT_LONGITUDE //TODO: will be removed -> will use for development
 
         Log.d(TAG, "latitude: $latitude longitude: $longitude")
 
         return location
     }
     //endregion
+
+    private fun getBatteryLevel(): Int? {
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { filter ->
+            context.registerReceiver(null, filter)
+        }
+
+        val batteryPct: Float? = batteryStatus?.let { intent ->
+            val level: Int = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale: Int = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            level * 100 / scale.toFloat()
+        }
+
+        Log.v(TAG, "Battery Percent = $batteryPct")
+        return batteryPct?.toInt()
+    }
+
+    private fun drawBatteryLevel() {
+        when (getBatteryLevel() ?: 0) {
+            in 0..25 -> {
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery4
+                )
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery3
+                )
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery2
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_red_dark,
+                    lottiePathBattery1
+                )
+            }
+
+            in 26..50 -> {
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery4
+                )
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery3
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_orange_dark,
+                    lottiePathBattery2
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_orange_dark,
+                    lottiePathBattery1
+                )
+            }
+
+            in 50..75 -> {
+                houseView.changeLayersColor(
+                    android.R.color.white,
+                    lottiePathBattery4
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery3
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery2
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery1
+                )
+            }
+
+            in 75..100 -> {
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery4
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery3
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery2
+                )
+                houseView.changeLayersColor(
+                    android.R.color.holo_green_dark,
+                    lottiePathBattery1
+                )
+            }
+        }
+    }
 }

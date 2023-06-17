@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 rootProject.name = "House diurnal cycle Watch Face"
 include ':app'
 include ':timetext'
-include ':timetexttestsupport'
