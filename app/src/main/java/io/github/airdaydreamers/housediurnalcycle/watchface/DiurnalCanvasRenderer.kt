@@ -33,6 +33,7 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
+private const val FRAME_PERIOD_MS_DEFAULT: Long = 16L
 
 class DiurnalCanvasRenderer(
     private val context: Context,
@@ -41,13 +42,18 @@ class DiurnalCanvasRenderer(
     private val complicationSlotsManager: ComplicationSlotsManager,
     currentUserStyleRepository: CurrentUserStyleRepository,
     canvasType: Int
-) : Renderer.CanvasRenderer(
-    surfaceHolder = surfaceHolder,
-    currentUserStyleRepository = currentUserStyleRepository,
-    watchState = watchState,
-    canvasType = canvasType,
-    interactiveDrawModeUpdateDelayMillis = 16L
+): Renderer.CanvasRenderer2<DiurnalCanvasRenderer.ClockSharedAssets>(
+    surfaceHolder,
+    currentUserStyleRepository,
+    watchState,
+    canvasType,
+    FRAME_PERIOD_MS_DEFAULT,
+    clearWithBackgroundTintBeforeRenderingHighlightLayer = false
 ) {
+    inner class ClockSharedAssets : SharedAssets {
+        override fun onDestroy() {
+        }
+    }
     companion object {
         const val TAG = "DiurnalCanvasRenderer"
 
@@ -162,6 +168,10 @@ class DiurnalCanvasRenderer(
         //clockView = rootView.findViewById(R.id.digital_clock_view)
     }
 
+    override suspend fun createSharedAssets(): ClockSharedAssets {
+        return ClockSharedAssets()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         (rootView.findViewById(R.id.timeText) as TimeText).onDetachedFromWindow()
@@ -174,7 +184,12 @@ class DiurnalCanvasRenderer(
         Log.v(TAG, "drawMode: ${renderParameters.drawMode}")
     }
 
-    override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
+    override fun render(
+        canvas: Canvas,
+        bounds: Rect,
+        zonedDateTime: ZonedDateTime,
+        sharedAssets: ClockSharedAssets
+    ) {
         Log.v(TAG, "$zonedDateTime")
 
         Log.v(TAG, "render => drawMode: ${renderParameters.drawMode}")
@@ -217,7 +232,12 @@ class DiurnalCanvasRenderer(
     }
 
     //TODO: need to complete
-    override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime) {
+    override fun renderHighlightLayer(
+        canvas: Canvas,
+        bounds: Rect,
+        zonedDateTime: ZonedDateTime,
+        sharedAssets: ClockSharedAssets
+    ) {
         Log.d(TAG, "renderHighlightLayer")
 
         canvas.drawColor(renderParameters.highlightLayer!!.backgroundTint)
