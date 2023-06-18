@@ -71,7 +71,6 @@ class DiurnalCanvasRenderer(
 
     private lateinit var rootView: View
     private lateinit var houseView: LottieAnimationView
-    //private lateinit var clockView: CurvedTextView
 
     private var listOfTimes: Array<DailyTime> = arrayOf(DailyTime(), DailyTime())
     private var currentDailyStatus: DailyStatus = DailyStatus.DAY
@@ -190,16 +189,17 @@ class DiurnalCanvasRenderer(
         zonedDateTime: ZonedDateTime,
         sharedAssets: ClockSharedAssets
     ) {
-        Log.v(TAG, "$zonedDateTime")
-
         Log.v(TAG, "render => drawMode: ${renderParameters.drawMode}")
-        //Will use
+
+        //TODO: need to complete
+        //region Will use
         when (renderParameters.drawMode) {
             DrawMode.AMBIENT -> {}
             DrawMode.INTERACTIVE -> {}
             DrawMode.LOW_BATTERY_INTERACTIVE -> {}
             DrawMode.MUTE -> {}
         }
+        //endregion
 
         //testTime = testTime.plusSeconds(20)
 
@@ -209,10 +209,8 @@ class DiurnalCanvasRenderer(
         rootView.draw(canvas)
         animate(status, zonedDateTime)
 
-        //TODO: make awesome digital clock
-        //clockView.text = "${zonedDateTime.hour}:${zonedDateTime.minute}"
-
         //TODO: draw on edge. at this moment we can see circle
+        //TODO: should be called less times -> only when something was changed
         drawComplications(canvas, zonedDateTime)
 
 
@@ -335,6 +333,7 @@ class DiurnalCanvasRenderer(
 
     private fun computeDailyStatus(zonedDateTime: ZonedDateTime): DailyStatus {
         //Get current location //TODO: need to request permissions
+        //TODO: should be called less times
         val location = getLocation()
 
         val times = if (location != null) {
