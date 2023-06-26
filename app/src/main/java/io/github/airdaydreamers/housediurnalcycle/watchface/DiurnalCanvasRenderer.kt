@@ -1,37 +1,43 @@
 package io.github.airdaydreamers.housediurnalcycle.watchface
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Point
 import android.graphics.Rect
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.BatteryManager
 import android.util.Log
 import android.view.*
-import androidx.core.app.ActivityCompat
+import androidx.lifecycle.Observer
 import androidx.wear.watchface.*
 import androidx.wear.watchface.style.CurrentUserStyleRepository
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.airbnb.lottie.LottieAnimationView
+import com.luckycatlabs.sunrisesunset.SunriseSunsetCalculator
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyStatus
 import io.github.airdaydreamers.housediurnalcycle.watchface.data.time.DailyTime
+import io.github.airdaydreamers.housediurnalcycle.watchface.services.PeriodicWorker
+import io.github.airdaydreamers.housediurnalcycle.watchface.usecases.GetLocationUseCase
 import io.github.airdaydreamers.housediurnalcycle.watchface.utils.Constants
 import io.github.airdaydreamers.housediurnalcycle.watchface.utils.changeLayersColor
+import io.github.airdaydreamers.housediurnalcycle.watchface.utils.toLibLocation
+import io.github.airdaydreamers.housediurnalcycle.watchface.utils.toZonedDateTime
 import io.github.airdaydreamers.timetext.TimeText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.shredzone.commons.suncalc.SunTimes
+import kotlinx.coroutines.withContext
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
+import java.util.GregorianCalendar
+import java.util.TimeZone
 import kotlin.math.abs
+
 
 private const val FRAME_PERIOD_MS_DEFAULT: Long = 16L
 
@@ -42,7 +48,7 @@ class DiurnalCanvasRenderer(
     private val complicationSlotsManager: ComplicationSlotsManager,
     currentUserStyleRepository: CurrentUserStyleRepository,
     canvasType: Int
-): Renderer.CanvasRenderer2<DiurnalCanvasRenderer.ClockSharedAssets>(
+) : Renderer.CanvasRenderer2<DiurnalCanvasRenderer.ClockSharedAssets>(
     surfaceHolder,
     currentUserStyleRepository,
     watchState,
@@ -54,12 +60,9 @@ class DiurnalCanvasRenderer(
         override fun onDestroy() {
         }
     }
+
     companion object {
         const val TAG = "DiurnalCanvasRenderer"
-
-        //Default location is BERLIN
-        private const val DEFAULT_LATITUDE = 52.520008
-        private const val DEFAULT_LONGITUDE = 13.404954
 
         private const val LOTTIE_NAME_PATH_CONTENT = "content"
         private const val LOTTIE_NAME_PATH_BATTERY_GROUP = "battery_changes"
@@ -72,21 +75,16 @@ class DiurnalCanvasRenderer(
     private lateinit var rootView: View
     private lateinit var houseView: LottieAnimationView
 
-    private var listOfTimes: Array<DailyTime> = arrayOf(DailyTime(), DailyTime())
+    private var dailyTime: DailyTime? = null
     private var currentDailyStatus: DailyStatus = DailyStatus.DAY
     private var currentProgress = 0.0f  //0f to 1f
 
     private val currentScope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    private var currentLocation: Location? = null
 
-    private val hasGps: Boolean by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS) }
-    private val hasNetworkLocation: Boolean by lazy {
-        context.packageManager.hasSystemFeature(
-            PackageManager.FEATURE_LOCATION_NETWORK
-        )
-    }
-
+    //region battery
     private val lottiePathBattery4 = arrayListOf(
         LOTTIE_NAME_PATH_CONTENT,
         LOTTIE_NAME_PATH_BATTERY_GROUP,
@@ -107,6 +105,27 @@ class DiurnalCanvasRenderer(
         LOTTIE_NAME_PATH_BATTERY_GROUP,
         LOTTIE_NAME_PATH_BATTERY_CELL_1
     )
+    //endregion
+
+    private val locationObserver = Observer<WorkInfo?> { workInfo ->
+        if (workInfo != null && workInfo.state == WorkInfo.State.SUCCEEDED) {
+            val outputData = workInfo.outputData
+            val lat = outputData.getDouble(PeriodicWorker.DATA_RESULT_KEY_LAT, -201.0)
+            val long = outputData.getDouble(PeriodicWorker.DATA_RESULT_KEY_LONG, -201.0)
+
+            if (currentLocation == null) {
+                currentLocation = Location(null)
+            }
+
+            lat.takeIf { it != -201.0 }?.also {
+                currentLocation?.latitude = it
+            }
+
+            long.takeIf { it != -201.0 }?.also {
+                currentLocation?.longitude = it
+            }
+        }
+    }
 
     //region timecodes
     /*
@@ -130,10 +149,24 @@ class DiurnalCanvasRenderer(
         initViews()
 
         currentScope.launch {
+            //TODO: check permissions
+            currentLocation = GetLocationUseCase(context.applicationContext)()
+
             currentUserStyleRepository.userStyle.collect { userStyle ->
                 //updateWatchFaceData(userStyle)
             }
         }
+
+        currentScope.launch {
+            val id = PeriodicWorker.scheduleWork(context.applicationContext)
+            //TODO: bad idea to observeForever.
+            withContext(Dispatchers.Main) {
+                WorkManager.getInstance(context.applicationContext).getWorkInfoByIdLiveData(id)
+                    .observeForever(locationObserver)
+            }
+        }
+
+        updateDailyTime(ZonedDateTime.now())
     }
 
     @SuppressLint("InflateParams")
@@ -204,7 +237,8 @@ class DiurnalCanvasRenderer(
         //testTime = testTime.plusSeconds(20)
 
         val status = computeDailyStatus(zonedDateTime)
-        Log.d(TAG, "status: $status")
+        updateDailyTime(zonedDateTime)
+        Log.d(TAG, "DailyStatus: $status")
 
         rootView.draw(canvas)
         animate(status, zonedDateTime)
@@ -255,7 +289,7 @@ class DiurnalCanvasRenderer(
         }
     }
 
-    //region logic TODO: decide to make in separate file
+    //TODO: decide to make in separate file
     private fun animate(
         dailyStatus: DailyStatus,
         currentTime: ZonedDateTime
@@ -267,13 +301,13 @@ class DiurnalCanvasRenderer(
                     currentProgress = 0.7400f //max 1
                 }
 
-                var sunrise: ZonedDateTime?
-                currentTime.dayOfYear.rem(2).also {
-                    sunrise = listOfTimes[it].sunrise
-                }
+//                var sunrise: ZonedDateTime?
+//                currentTime.dayOfYear.rem(2).also {
+//                    sunrise = listOfTimes[it].sunrise
+//                }
 
                 //0.0037 per minute
-                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, sunrise))
+                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, dailyTime?.sunrise))
                 houseView.progress = 0.0037f * progressOfEvent + 0.7400f
             }
 
@@ -301,12 +335,12 @@ class DiurnalCanvasRenderer(
                 }
 
                 //0.0037 per minute
-                val sunset: ZonedDateTime?
-                currentTime.dayOfYear.rem(2).also {
-                    sunset = listOfTimes[it].sunset
-                }
+//                val sunset: ZonedDateTime?
+//                currentTime.dayOfYear.rem(2).also {
+//                    sunset = listOfTimes[it].sunset
+//                }
 
-                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, sunset))
+                val progressOfEvent = abs(ChronoUnit.MINUTES.between(currentTime, dailyTime?.sunset))
 
                 val estimatedProgress = 0.0037f * progressOfEvent + 0.2466f
                 houseView.progress = estimatedProgress
@@ -331,163 +365,73 @@ class DiurnalCanvasRenderer(
         }
     }
 
-    private fun computeDailyStatus(zonedDateTime: ZonedDateTime): DailyStatus {
+    //region dailyStatus
+    private fun computeDailyStatus(currentZonedDateTime: ZonedDateTime): DailyStatus {
         //Get current location //TODO: need to request permissions
         //TODO: should be called less times
-        val location = getLocation()
 
-        val times = if (location != null) {
-            SunTimes.compute()
-                .on(zonedDateTime)
-                .at(location.latitude, location.longitude)
-                .execute()
-        } else {
-            SunTimes.compute().execute()
+        updateDailyTime(currentZonedDateTime)
+
+        return getDailyStatus(currentZonedDateTime)
+    }
+
+    private fun updateDailyTime(currentZonedDateTime: ZonedDateTime) {
+        if (dailyTime?.sunrise?.dayOfYear == currentZonedDateTime.dayOfYear) {
+            return
         }
-        Log.v(TAG, "SunTimes: $times")
+        val calculator = SunriseSunsetCalculator(
+            currentLocation?.toLibLocation() ?: com.luckycatlabs.sunrisesunset.dto.Location(
+                GetLocationUseCase.DEFAULT_LATITUDE,
+                GetLocationUseCase.DEFAULT_LONGITUDE
+            ), TimeZone.getDefault()
+        )
 
-        times.rise?.dayOfYear?.rem(2)?.also {
-            listOfTimes[it].sunrise = times.rise
-        }
+        val date = GregorianCalendar.from(currentZonedDateTime)
+        val sunrise = calculator.getOfficialSunriseCalendarForDate(date)
+        val sunset = calculator.getOfficialSunsetCalendarForDate(date)
 
-        times.set?.dayOfYear?.rem(2)?.also {
-            listOfTimes[it].sunset = times.set
-        }
-
-        var sunrise: ZonedDateTime?
-        var sunset: ZonedDateTime?
-
-        zonedDateTime.dayOfYear.rem(2).also {
-            sunrise = listOfTimes[it].sunrise
-            sunset = listOfTimes[it].sunset
-        }
-
-        Log.v(TAG, "sunrise: $sunrise sunset: $sunset")
-
-        val virtualTimes = if (sunrise == null || sunset == null) {
-            //if all values for current day is null
-            val virtualZonedDateTime = ZonedDateTime.of(
-                zonedDateTime.year,
-                zonedDateTime.monthValue,
-                zonedDateTime.dayOfMonth,
-                1,
-                0,
-                0,
-                0,
-                zonedDateTime.zone
-            )
-
-            location?.let {
-                SunTimes.compute()
-                    .on(virtualZonedDateTime)
-                    .at(it.latitude, it.longitude)
-                    .execute()
-            }
-        } else null
-
-        return getDailyStatus(
-            sunrise = sunrise,
-            sunset = sunset,
-            currentTime = zonedDateTime,
-            virtualTimes = virtualTimes ?: SunTimes.compute().execute(),
-            computedTimes = times
+        dailyTime =
+            DailyTime(sunrise = sunrise.toZonedDateTime(), sunset = sunset.toZonedDateTime())
+        Log.i(
+            TAG,
+            "Set new times. sunrise: ${dailyTime?.sunrise.toString()} sunset: ${dailyTime?.sunset.toString()}}"
         )
     }
 
-    private fun getDailyStatus(
-        sunrise: ZonedDateTime?,
-        sunset: ZonedDateTime?,
-        currentTime: ZonedDateTime,
-        computedTimes: SunTimes,
-        virtualTimes: SunTimes
-    ): DailyStatus {
+    private fun getDailyStatus(currentTime: ZonedDateTime): DailyStatus {
         return when {
             isSunriseOrSunset(
                 currentTime,
-                eventTime = sunrise ?: virtualTimes.rise
+                eventTime = dailyTime?.sunrise
             ) -> DailyStatus.SUNRISE
 
-            isDay(sunrise, sunset, currentTime, computedTimes) -> DailyStatus.DAY
+            isDay(currentTime) -> DailyStatus.DAY
             isSunriseOrSunset(
                 currentTime,
-                eventTime = sunset ?: virtualTimes.set
+                eventTime = dailyTime?.sunset
             ) -> DailyStatus.SUNSET
 
             else -> DailyStatus.NIGHT
         }
     }
 
-    private fun isDay(
-        sunrise: ZonedDateTime?,
-        sunset: ZonedDateTime?,
-        currentTime: ZonedDateTime,
-        computedTimes: SunTimes
-    ): Boolean {
-        return (sunrise != null
-                && (currentTime.isAfter(sunrise.plusMinutes(Constants.DEFAULT_DURATION_RISE_SET_MIN))
-                && currentTime.isBefore(sunset)))
-                || ((sunrise == null && sunset != null)
-                && currentTime.isBefore(sunset)
-                && (computedTimes.rise?.isAfter(computedTimes.set) == true))
+    private fun isDay(currentTime: ZonedDateTime): Boolean {
+        if (dailyTime == null || dailyTime?.sunrise == null || dailyTime?.sunset == null) {
+            return true //Let's use as default status
+        }
+        return currentTime.isAfter(dailyTime?.sunrise?.plusMinutes(Constants.DEFAULT_DURATION_RISE_SET_MIN))
+                && currentTime.isBefore(dailyTime?.sunset)
     }
 
     private fun isSunriseOrSunset(currentTime: ZonedDateTime, eventTime: ZonedDateTime?): Boolean {
-        return (currentTime.isEqual(eventTime)
+        return eventTime != null && (currentTime.isEqual(eventTime)
                 || (currentTime.isAfter(eventTime)
-                && currentTime.isBefore(eventTime?.plusMinutes(Constants.DEFAULT_DURATION_RISE_SET_MIN)))
+                && currentTime.isBefore(eventTime.plusMinutes(Constants.DEFAULT_DURATION_RISE_SET_MIN)))
                 )
-    }
-
-    private fun getLocation(): Location? {
-        Log.i(TAG, "hasGPS: $hasGps and hasNetworkLocation: $hasNetworkLocation")
-        val locationManager = context
-            .getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-        val listener = LocationListener { }
-
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-
-            Log.i(TAG, "Need to request permissions")
-            return null
-        }
-
-//        locationManager.requestLocationUpdates(
-//            LocationManager.NETWORK_PROVIDER,
-//            0,
-//            1f,
-//            listener
-//        )
-
-
-        //TODO: add support GPS location data
-        val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-        locationManager.removeUpdates(listener)
-
-        val latitude = location?.latitude
-            ?: DEFAULT_LATITUDE //TODO: will be removed -> will use for development
-        val longitude = location?.longitude
-            ?: DEFAULT_LONGITUDE //TODO: will be removed -> will use for development
-
-        Log.d(TAG, "latitude: $latitude longitude: $longitude")
-
-        return location
     }
     //endregion
 
+    //region battery
     private fun getBatteryLevel(): Int? {
         val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { filter ->
             context.registerReceiver(null, filter)
@@ -582,4 +526,5 @@ class DiurnalCanvasRenderer(
             }
         }
     }
+    //endregion
 }

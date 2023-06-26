@@ -55,7 +55,8 @@ dependencies {
 
     //Animation components
     implementation 'com.airbnb.android:lottie:6.0.1'
-    implementation 'org.shredzone.commons:commons-suncalc:3.7'
+
+    implementation 'com.luckycatlabs:SunriseSunsetCalculator:1.2'
 
     implementation "androidx.core:core-ktx:1.10.1"
 
@@ -64,6 +65,9 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
 
     implementation "androidx.activity:activity-ktx:1.7.2"
+    implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.6.1")
+    implementation "androidx.work:work-runtime-ktx:2.8.1"
+
 
     // Lifecycle components
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
